@@ -103,20 +103,27 @@ def _k_neighbors(matr_train, sim, k, n_common_items, min_support, user2items, te
 def _predictions(matr_train, test_ids, user2items, neighbor_ids, sim, with_means):
     if with_means:
         matr_train = matr_train.copy()
-        sub = matr_train.sum(axis=1)
-        for i in range(matr_train.shape[0]):
-            nonzero = matr_train[i].nonzero()[1]
-            matr_train[i, nonzero] -= sub[i] / len(nonzero)
+        userwise_sums = matr_train.sum(axis=1).A1
+        counts = np.diff(matr_train.indptr)
+        userwise_means = userwise_sums / counts
     res = defaultdict(list)
     for j, test_id in enumerate(test_ids):
         for i, item_id in enumerate(user2items[test_id]):
             train_ids = np.array(neighbor_ids[j][i])
             if len(train_ids) != 0:
-                weights = sim[j, train_ids][:, None]
-                nom = (matr_train[train_ids].toarray() * weights).sum(axis=0)
+                weights = sim[j, train_ids]
                 denom = weights.sum()
-                pred = nom / denom
-                res['rating'].append(pred[item_id])
+
+                if with_means:
+                    values = matr_train[train_ids].toarray()[:, item_id] - userwise_means[train_ids]
+                    nom = (values * weights).sum(axis=0)
+                    pred = nom / denom + userwise_means[test_id]
+                else:
+                    values = matr_train[train_ids].toarray()[:, item_id]
+                    nom = (values * weights).sum(axis=0)
+                    pred = nom / denom
+                
+                res['rating'].append(pred)
                 res['impossible'].append(False)
             else:
                 res['rating'].append(-np.inf)
@@ -124,4 +131,3 @@ def _predictions(matr_train, test_ids, user2items, neighbor_ids, sim, with_means
             res['_user_id'].append(test_id)
             res['_item_id'].append(item_id)
     return res
-
