@@ -10,10 +10,11 @@ def svdpp(
         df_train,
         df_test,
         n_factors=100,
-        n_epochs=20,
+        n_epochs=10,
         batch_size=256,
         init_mean=0,
         init_std_dev=.1,
+        biased=True,
         lr=.005,
         reg=.02,
         random_state=None,
@@ -22,16 +23,16 @@ def svdpp(
     ):
     np.random.seed(random_state)
 
-    _svd_preprocess(df_train, df_test)
-    n_users = len(df_train.user_id.unique())
-    n_items = len(df_train.item_id.unique())
+    df_train, df_test, n_users, n_items = _svd_preprocess(df_train, df_test)
     bu, bi, P, Q, yj = _init(n_users, n_items, n_factors, init_mean, init_std_dev)
-    rmse = _optimize(bu, bi, P, Q, yj, df_train, lr, reg, n_epochs, batch_size, verbose)
+    rmse = _optimize(bu, bi, P, Q, yj, df_train, lr, reg, n_epochs, batch_size, verbose, biased)
     
     df_test['pred_rating'] = _predictions(df_train, df_test, bu, bi, P, Q)
     
     if return_logs:
         return rmse
+    
+    return df_train, df_test
 
 def _predictions(df_train, df_test, bu, bi, P, Q):
     mu = df_train['rating'].mean()
@@ -53,11 +54,11 @@ def _init(n_users, n_items, n_factors, init_mean, init_std_dev):
 
     return bu, bi, P, Q, yj
 
-def _inversed_root(df):
+def _user2items(df):
     return df.groupby('_user_id')['_item_id'].apply(lambda x: list(x)).to_list()
 
-def _optimize(bu, bi, P, Q, yj, df_train, lr, reg, n_epochs, batch_size, verbose, logging_times=4):
-    user2items = _inversed_root(df_train)
+def _optimize(bu, bi, P, Q, yj, df_train, lr, reg, n_epochs, batch_size, verbose, biased, logging_times=4):
+    user2items = _user2items(df_train)
     data = df_train.to_dict('list')
     n_data = df_train.shape[0]
     logging_interval = math.ceil(n_data / batch_size) // logging_times
@@ -88,8 +89,9 @@ def _optimize(bu, bi, P, Q, yj, df_train, lr, reg, n_epochs, batch_size, verbose
             errors = ratings - hat_ratings
 
             # gradients
-            bu_anti_grads = errors - reg * bu[user_ids]
-            bi_anti_grads = errors - reg * bi[item_ids]
+            if biased:
+                bu_anti_grads = errors - reg * bu[user_ids]
+                bi_anti_grads = errors - reg * bi[item_ids]
             P_anti_grads = errors[:, None] * Q[item_ids] - reg * P[user_ids]
             Q_anti_grads = errors[:, None] * (P[user_ids] + implicit_feedback) - reg * Q[item_ids]
             yj_anti_grad = np.zeros_like(yj)
@@ -98,8 +100,9 @@ def _optimize(bu, bi, P, Q, yj, df_train, lr, reg, n_epochs, batch_size, verbose
                 yj_anti_grad[items_to_update] += anti_grad
             
             # optimization step
-            np.add.at(bu, user_ids, lr * bu_anti_grads)
-            np.add.at(bi, item_ids, lr * bi_anti_grads)
+            if biased:
+                np.add.at(bu, user_ids, lr * bu_anti_grads)
+                np.add.at(bi, item_ids, lr * bi_anti_grads)
             np.add.at(P, user_ids, lr * P_anti_grads)
             np.add.at(Q, item_ids, lr * Q_anti_grads)
             yj += lr * yj_anti_grad

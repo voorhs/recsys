@@ -6,10 +6,11 @@ def svd(
         df_train,
         df_test,
         n_factors=100,
-        n_epochs=20,
+        n_epochs=10,
         batch_size=256,
         init_mean=0,
         init_std_dev=.1,
+        biased=True,
         lr=.005,
         reg=.02,
         random_state=None,
@@ -18,16 +19,16 @@ def svd(
     ):
     np.random.seed(random_state)
 
-    _preprocess(df_train, df_test)
-    n_users = len(df_train.user_id.unique())
-    n_items = len(df_train.item_id.unique())
+    df_train, df_test, n_users, n_items = _preprocess(df_train, df_test)
     bu, bi, P, Q = _init(n_users, n_items, n_factors, init_mean, init_std_dev)
-    rmse = _optimize(bu, bi, P, Q, df_train, lr, reg, n_epochs, batch_size, verbose)
+    rmse = _optimize(bu, bi, P, Q, df_train, lr, reg, n_epochs, batch_size, verbose, biased)
     
     df_test['pred_rating'] = _predictions(df_train, df_test, bu, bi, P, Q)
     
     if return_logs:
         return rmse
+    
+    return df_train, df_test
 
 def _predictions(df_train, df_test, bu, bi, P, Q):
     mu = df_train['rating'].mean()
@@ -56,14 +57,22 @@ def _init(n_users, n_items, n_factors, init_mean, init_std_dev):
     return bu, bi, P, Q
 
 def _preprocess(df_train, df_test):
+    df_train = df_train.copy()
+    df_test = df_test.copy()
+
     # define raw and inner ids for users and items (inner ids are for indexing arrays)
-    raw_user_ids = df_train.user_id.unique().tolist()
-    raw_item_ids = df_train.item_id.unique().tolist()
+    raw_user_ids = list(set(df_train.user_id.unique()).union(set(df_test.user_id.unique())))
+    raw_item_ids = list(set(df_train.item_id.unique()).union(set(df_test.item_id.unique())))
     for df in [df_train, df_test]:
         df['_user_id'] = df.user_id.map(lambda i: raw_user_ids.index(i))
         df['_item_id'] = df.item_id.map(lambda i: raw_item_ids.index(i))
 
-def _optimize(bu, bi, P, Q, df_train, lr, reg, n_epochs, batch_size, verbose, logging_times=4):
+    n_users = len(raw_user_ids)
+    n_items = len(raw_item_ids)
+
+    return df_train, df_test, n_users, n_items
+
+def _optimize(bu, bi, P, Q, df_train, lr, reg, n_epochs, batch_size, verbose, biased, logging_times=4):
     data = df_train.to_dict('list')
     n_data = df_train.shape[0]
     logging_interval = math.ceil(n_data / batch_size) // logging_times
@@ -90,14 +99,16 @@ def _optimize(bu, bi, P, Q, df_train, lr, reg, n_epochs, batch_size, verbose, lo
             error = ratings - hat_ratings
 
             # gradients
-            bu_anti_grads = error - reg * bu[user_ids]
-            bi_anti_grads = error - reg * bi[item_ids]
+            if biased:
+                bu_anti_grads = error - reg * bu[user_ids]
+                bi_anti_grads = error - reg * bi[item_ids]
             P_anti_grads = error[:, None] * Q[item_ids] - reg * P[user_ids]
             Q_anti_grads = error[:, None] * P[user_ids] - reg * Q[item_ids]
             
             # optimization step
-            np.add.at(bu, user_ids, lr * bu_anti_grads)
-            np.add.at(bi, item_ids, lr * bi_anti_grads)
+            if biased:
+                np.add.at(bu, user_ids, lr * bu_anti_grads)
+                np.add.at(bi, item_ids, lr * bi_anti_grads)
             np.add.at(P, user_ids, lr * P_anti_grads)
             np.add.at(Q, item_ids, lr * Q_anti_grads)
 

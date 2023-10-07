@@ -15,28 +15,35 @@ def knn_user_based(
         verbose=False,
         with_means=False
     ):
-    if verbose:
-        print('...preprocessing')
-    matr_train, matr_test, test_ids = _preprocess(df_train, df_test)
-    if verbose:
-        print('...counting common items')
+    if verbose: print('...preprocessing')
+    df_train, df_test, matr_train, matr_test, test_ids = _preprocess(df_train, df_test)
+    
+    if verbose: print('...counting common items')
     n_common_items = _n_common_items(matr_train, matr_test, test_ids)
-    if verbose:
-        print('...computing similarities')
+    
+    if verbose: print('...computing similarities')
     sim = _similarities(matr_train, matr_test, metric, n_common_items, min_support)
     user2items = df_test.groupby('_user_id')['_item_id'].apply(lambda x: list(x)).to_dict()
-    if verbose:
-        print('...finding neighbors')
+    
+    if verbose: print('...finding neighbors')
     neighbor_ids = _k_neighbors(matr_train, sim, k, n_common_items, min_support, user2items, test_ids)
-    if verbose:
-        print('...predicting')
-    preds = _predictions(matr_train, test_ids, user2items, neighbor_ids, sim, with_means)
-    return pd.DataFrame(preds)
+    
+    if verbose: print('...predicting')
+    mu = df_train.rating.mean()
+    preds = _predictions(matr_train, test_ids, user2items, neighbor_ids, sim, with_means, mu)
+    
+    df_test: pd.DataFrame = df_test.merge(pd.DataFrame(preds), on=['_user_id', '_item_id'], how='left')
+    df_test = df_test.rename(columns={'rating_x': 'rating', 'rating_y': 'pred_rating'})
+    
+    return df_train, df_test
 
 def _preprocess(df_train, df_test):
+    df_train = df_train.copy()
+    df_test = df_test.copy()
+
     # define raw and inner ids for users and items (inner ids are for indexing arrays)
-    raw_user_ids = df_train.user_id.unique().tolist()
-    raw_item_ids = df_train.item_id.unique().tolist()
+    raw_user_ids = list(set(df_train.user_id.unique()).union(set(df_test.user_id.unique())))
+    raw_item_ids = list(set(df_train.item_id.unique()).union(set(df_test.item_id.unique())))
     n_users = len(raw_user_ids)
     n_items = len(raw_item_ids)
     for df in [df_train, df_test]:
@@ -49,7 +56,7 @@ def _preprocess(df_train, df_test):
     test_ids = df_test._user_id.unique()
     matr_test = matr_train[test_ids]
 
-    return matr_train, matr_test, test_ids.tolist()
+    return df_train, df_test, matr_train, matr_test, test_ids.tolist()
 
 def _n_common_items(matr_train, matr_test, test_ids):
     # compute number of common items for each pair (test_user, train_user)
@@ -72,7 +79,7 @@ def _similarities(matr_train, matr_test, metric, n_common_items, min_support):
         sim = pairwise_distances(matr_test, matr_train, metric='cosine')
     elif metric == 'msd':
         eu_dists = pairwise_distances(matr_test, matr_train, metric='euclidean')
-        sim = n_common_items / np.where(eu_dists != 0, eu_dists, 1)
+        sim = n_common_items / (1 + eu_dists)
     else:
         raise ValueError(f'unknown metric {metric}')
 
@@ -100,7 +107,7 @@ def _k_neighbors(matr_train, sim, k, n_common_items, min_support, user2items, te
         neighbor_ids.append(neighbor_ids_for_user)
     return neighbor_ids
 
-def _predictions(matr_train, test_ids, user2items, neighbor_ids, sim, with_means):
+def _predictions(matr_train, test_ids, user2items, neighbor_ids, sim, with_means, mu):
     if with_means:
         matr_train = matr_train.copy()
         userwise_sums = matr_train.sum(axis=1).A1
@@ -126,7 +133,7 @@ def _predictions(matr_train, test_ids, user2items, neighbor_ids, sim, with_means
                 res['rating'].append(pred)
                 res['impossible'].append(False)
             else:
-                res['rating'].append(-np.inf)
+                res['rating'].append(mu)
                 res['impossible'].append(True)
             res['_user_id'].append(test_id)
             res['_item_id'].append(item_id)
