@@ -33,15 +33,15 @@ class Learner(pl.LightningModule):
         self.scores = []
         self.lambdas = []
 
-    def forward(self, batch):
+    def forward(self, batch, **kwargs):
         """`url_features` for a single query: (n, d)"""
-        return self.model(batch)
-
+        return self.model(batch, **kwargs)
+        
     def training_step(self, batch, batch_idx):
         """some inspiration came from here: https://github.com/haowei01/pytorch-examples/blob/master/ranking/LambdaRank.py#L212"""
         
         with autocast(device_type='cuda', dtype=torch.float16):
-            scores, lambdas, metric = self(batch)
+            scores, lambdas, metrics = self(batch, return_score=True, compute_lambdas=True, compute_metrics=True)
         self.scores.append(scores)
         self.lambdas.append(lambdas)
         
@@ -55,9 +55,8 @@ class Learner(pl.LightningModule):
             self.scores.clear()
             self.lambdas.clear()
         
-        self.log(
-            name='train_metric',
-            value=metric,
+        self.log_dict(
+            dictionary={f'train_{name}': val for name, val in metrics.items()},
             prog_bar=False,
             logger=True,
             on_step=False,
@@ -65,10 +64,9 @@ class Learner(pl.LightningModule):
         )
     
     def validation_step(self, batch, batch_idx):
-        _, _, metric = self(batch)
-        self.log(
-            name='val_metric',
-            value=metric,
+        metrics, = self(batch, return_score=False, compute_lambdas=False, compute_metrics=True)
+        self.log_dict(
+            dictionary={f'val_{name}': val for name, val in metrics.items()},
             prog_bar=False,
             logger=True,
             on_step=False,

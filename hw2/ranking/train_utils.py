@@ -47,17 +47,18 @@ def seed_everything(seed: int):
 def get_argparser():
     import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument('--model', dest='model', choices=['ranknet', 'lambda-rank', 'mart', 'lambda-mart'], default='ranknet')
+    ap.add_argument('--model', dest='model', choices=['ranknet', 'lambda-rank', 'mart', 'lambda-mart'], default='lambda-rank')
     ap.add_argument('--name', dest='name', default=None)
     ap.add_argument('--seed', dest='seed', default=0, type=int)
     ap.add_argument('--n_workers', dest='n_workers', default=8, type=int)
     ap.add_argument('--n_epochs', dest='n_epochs', default=10, type=int)
     ap.add_argument('--interval', dest='interval', default=1, type=int)
-    ap.add_argument('--logdir', dest='logdir', default='../logs')
-    ap.add_argument('--logger', dest='logger', choices=['tb', 'wb', 'none'], default='tb')
-    ap.add_argument('--batch_size', dest='batch_size', default=4, type=int)
+    ap.add_argument('--logdir', dest='logdir', default='./logs')
+    ap.add_argument('--logger', dest='logger', choices=['tb', 'wb'], default='tb')
+    ap.add_argument('--metric', dest='metric', choices=['map', 'mrr', 'ndcg'], default='ndcg')
+    ap.add_argument('--batch_size', dest='batch_size', default=1, type=int)
     ap.add_argument('--max_lr', dest='max_lr', default=1e-3, type=float)
-    ap.add_argument('--warmup_pct', dest='warmup_pct', default=.1, type=int)
+    ap.add_argument('--warmup_pct', dest='warmup_pct', default=.1, type=float)
     ap.add_argument('--lr_div_factor', dest='lr_div_factor', default=1e3, type=float)
     ap.add_argument('--resume-training-from', dest='resume_from', default=None)
     ap.add_argument('--load-weights-from', dest='weights_from', default=None)
@@ -69,7 +70,7 @@ def train(learner, train_loader, val_loader, args):
 
     if args.logger != 'none':
         checkpoint_callback = ModelCheckpoint(
-            monitor='val_metric',
+            monitor=f'val_{args.metric}',
             # save_last=True,
             save_top_k=1,
             # every_n_epochs=1,

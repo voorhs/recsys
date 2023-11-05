@@ -34,13 +34,20 @@ if __name__ == "__main__":
     )
 
     # === model and learner ===
-    from ranking import RankNet
+    from ranking import RankNet, LambdaRank
 
     if args.model == 'ranknet':
         model = RankNet(
             input_size=46,
             hidden_size=10,
-            temperature=1
+            temperature=1,
+        )
+    if args.model == 'lambda-rank':
+        model = LambdaRank(
+            input_size=46,
+            hidden_size=10,
+            temperature=1,
+            metric_to_optimize=args.metric
         )
 
     from ranking import Learner, LearnerConfig
