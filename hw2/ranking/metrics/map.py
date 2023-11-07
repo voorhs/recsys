@@ -7,7 +7,7 @@ def precision(y_true):
     num_of_retrieved = len(y_true)
     return num_of_relevant / num_of_retrieved
 
-def MAP(y_true, y_scores, as_indices=False):
+def MAP(y_true, y_scores, k=None, as_indices=False):
     """Calculate mean average precision metric.
     - `y_true`: mapping from query id to list of relevance labels for each ranked url
     - `y_score`: predictions following the same format
@@ -24,12 +24,17 @@ def MAP(y_true, y_scores, as_indices=False):
             indices = scores
         else:
             indices = np.argsort(scores)[::-1]
+        if k is not None:
+            indices = indices[:k]
         targets = [targets[i] for i in indices]
         
         sum_prec = sum(precision(targets[:i+1]) for i, t in enumerate(targets) if t > 0)
-        num_of_relevant_urls = sum(t > 0 for t in targets)
+        num_of_relevant = sum(t > 0 for t in targets)
         
-        avg_prec = sum_prec / num_of_relevant_urls
+        if num_of_relevant == 0:
+            avg_prec = 0
+        else:
+            avg_prec = sum_prec / num_of_relevant
         res += avg_prec
     
     res /= len(query_ids)

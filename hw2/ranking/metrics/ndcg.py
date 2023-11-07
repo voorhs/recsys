@@ -21,7 +21,7 @@ def IDCG(y_true):
     - `y_true`: list of relevance labels of ranked urls"""
     return DCG(sorted(y_true, reverse=True))
 
-def NDCG(y_true, y_scores, as_indices=False):
+def NDCG(y_true, y_scores, k=None, as_indices=False):
     """Calculates normalized discounted cumulative gain metric. Gain is 2^r-1, where r is a relevance label
     - `y_true`: mapping from query id to list of relevance labels for each ranked url
     - `y_score`: predictions following the same format
@@ -38,9 +38,15 @@ def NDCG(y_true, y_scores, as_indices=False):
             indices = scores
         else:
             indices = np.argsort(scores)[::-1]
+        if k is not None:
+            indices = indices[:k]
         targets = [targets[i] for i in indices]
         
-        ndcg = DCG(targets) / IDCG(targets)
+        idcg = IDCG(targets)
+        if idcg == 0:
+            ndcg = 0
+        else:
+            ndcg = DCG(targets) / idcg
         res += ndcg
     
     res /= len(query_ids)

@@ -7,8 +7,8 @@ from multiprocessing import Pool
 from tqdm.contrib.concurrent import process_map
 
 class LambdaRank(RankNet):
-    def __init__(self, input_size, hidden_size, temperature, metric_to_optimize: Literal['map', 'mrr', 'ndcg']):
-        super().__init__(input_size, hidden_size, temperature)
+    def __init__(self, input_size, hidden_size, n_hidden_layers, temperature, extra_metrics, metric_to_optimize: Literal['map', 'mrr', 'ndcg']):
+        super().__init__(input_size, hidden_size, n_hidden_layers, temperature, extra_metrics)
 
         self.metric_to_optimize = metric_to_optimize
 

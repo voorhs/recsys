@@ -54,10 +54,14 @@ def get_argparser():
     ap.add_argument('--n_epochs', dest='n_epochs', default=10, type=int)
     ap.add_argument('--interval', dest='interval', default=1, type=int)
     ap.add_argument('--logdir', dest='logdir', default='./logs')
+    ap.add_argument('--dataset', dest='dataset', choices=['mq2007', 'mq2008', 'movielens'], default='mq2007')
     ap.add_argument('--logger', dest='logger', choices=['tb', 'wb'], default='tb')
     ap.add_argument('--metric', dest='metric', choices=['map', 'mrr', 'ndcg'], default='ndcg')
     ap.add_argument('--batch_size', dest='batch_size', default=1, type=int)
-    ap.add_argument('--max_lr', dest='max_lr', default=1e-3, type=float)
+    ap.add_argument('--max_lr', dest='max_lr', default=1e-6, type=float)
+    ap.add_argument('--lr_decay', dest='lr_decay', default=False, type=bool)
+    ap.add_argument('--user_based', dest='user_based', default=True, type=bool)
+    ap.add_argument('--extra_metrics', dest='extra_metrics', default=False, type=bool)
     ap.add_argument('--warmup_pct', dest='warmup_pct', default=.1, type=float)
     ap.add_argument('--lr_div_factor', dest='lr_div_factor', default=1e3, type=float)
     ap.add_argument('--resume-training-from', dest='resume_from', default=None)
@@ -139,7 +143,7 @@ def train(learner, train_loader, val_loader, args):
 
     print('Finished at', datetime.now().strftime("%H:%M:%S %d-%m-%Y"))
 
-    trainer.validate(learner, val_loader)
+    trainer.validate(learner, val_loader, ckpt_path='best')
 
 
 def init_environment(args):

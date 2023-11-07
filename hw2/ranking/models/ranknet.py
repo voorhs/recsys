@@ -4,17 +4,25 @@ import torch.nn.functional as F
 from ..metrics import MAP, MRR, NDCG
 
 class RankNet(nn.Module):
-    def __init__(self, input_size, hidden_size, temperature):
+    def __init__(self, input_size, hidden_size, n_hidden_layers, temperature, extra_metrics=False):
         """two layer MLP"""
         super().__init__()
 
         self.input_size = input_size
         self.hidden_size = hidden_size
+        self.n_hidden_layers = n_hidden_layers
         self.temperature = temperature
+        self.extra_metrics = extra_metrics
+
+        hidden_layers = []
+        for _ in range(n_hidden_layers):
+            hidden_layers.append(nn.Linear(hidden_size, hidden_size))
+            hidden_layers.append(nn.ReLU())
 
         self.net = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
+            nn.Sequential(*hidden_layers),
             nn.Linear(hidden_size, 1)
         )
     
@@ -52,8 +60,17 @@ class RankNet(nn.Module):
         y_true = relevance_labels.cpu().numpy().astype(int)
         y_score = scores.detach().cpu().numpy()
         inputs = ({'0': y_true}, {'0': y_score})
-        return {
+        res = {
             'map': MAP(*inputs),
             'mrr': MRR(*inputs),
             'ndcg': NDCG(*inputs),
         }
+        if self.extra_metrics:
+            extra_res = {
+                'ndcg@3': NDCG(*inputs, k=3),
+                'ndcg@5': NDCG(*inputs, k=5),
+                'map@3': MAP(*inputs, k=3),
+                'map@5': MAP(*inputs, k=5),
+            }
+            res.update(extra_res)
+        return res

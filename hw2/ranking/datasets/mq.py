@@ -33,6 +33,7 @@ class MQDataset(Dataset):
                 batches.append(batch)
         self.dataset = pd.concat(batches)
         self.query_ids = self.dataset['qid'].unique().tolist()
+        self.n_features = self[0][0].shape[1]
 
     def __len__(self):
         return len(self.query_ids)
