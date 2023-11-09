@@ -33,19 +33,19 @@ def NDCG(y_true, y_scores, k=None, as_indices=False):
     for qid in query_ids:
         targets = y_true[qid]
         scores = y_scores[qid]
-
-        if as_indices:
-            indices = scores
-        else:
-            indices = np.argsort(scores)[::-1]
-        if k is not None:
-            indices = indices[:k]
-        targets = [targets[i] for i in indices]
-        
         idcg = IDCG(targets)
+
         if idcg == 0:
             ndcg = 0
         else:
+            if as_indices:
+                indices = scores
+            else:
+                indices = np.argsort(scores)[::-1]
+            if k is not None:
+                indices = indices[:k]
+            targets = [targets[i] for i in indices]
+            
             ndcg = DCG(targets) / idcg
         res += ndcg
     
