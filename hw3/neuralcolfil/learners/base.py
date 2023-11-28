@@ -12,7 +12,7 @@ class BaseLearnerConfig:
     lr_div_factor: float = 1e3
     batch_size: int = 4
     warmup_pct: float = 0.1
-    weight_decay = 1e-2
+    weight_decay = 1e-1
     betas : tuple = (0.9, 0.999)
     total_steps: int = None
     lr_decay: bool = False
@@ -32,7 +32,7 @@ class BaseLearner(pl.LightningModule):
         decay = set()
         no_decay = set()
         whitelist_weight_modules = (nn.Linear,)
-        blacklist_weight_modules = (nn.Embedding)
+        blacklist_weight_modules = (nn.Embedding, nn.LayerNorm)
         for mn, m in self.named_modules():
             for pn, p in m.named_parameters():
                 fpn = '%s.%s' % (mn, pn) if mn else pn # full param name

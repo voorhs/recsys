@@ -56,8 +56,8 @@ if __name__ == "__main__":
     input_size = train_dataset[0][0].shape[1]
     model = RankNet(
         input_size=input_size,
-        hidden_size=32,
-        n_hidden_layers=3,
+        hidden_size=64,
+        n_hidden_layers=5,
         temperature=1
     )
 

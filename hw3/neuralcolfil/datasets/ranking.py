@@ -11,7 +11,7 @@ class RekkoRanking(RekkoImplicit):
             self,
             feed_size,
             split: Literal['train', 'val'],
-            embedding_path='/home/ilya/repos/recsys/data/rekko/embeddings',
+            embedding_path='/home/ilya/repos/recsys/data/rekko/embeddings-v2',
             dataframe_path='/home/ilya/repos/recsys/data/rekko/my_splits'
         ):
         super().__init__(n_negatives=0, split=split, path=dataframe_path)
@@ -53,8 +53,8 @@ def load_embeddings(path):
     model = MLP(
         n_users=9939,
         n_items=6852,
-        embedding_dim=16,
-        hidden_sizes=[32, 32, 32]
+        embedding_dim=64,
+        hidden_sizes=[128, 128, 64, 64, 32]
     )
     user_path = os.path.join(path, 'user.pth')
     model.embed_user.load_state_dict(torch.load(user_path, map_location='cpu'))

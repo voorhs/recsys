@@ -3,9 +3,9 @@ if __name__ == "__main__":
     from neuralcolfil.learners import ColFilLearner as Learner, ColFilLearnerConfig as LearnerConfig
     
     ap = config_to_argparser([LearnerConfig, TrainerConfig])
-    ap.add_argument('--model', dest='model', choices=['gmf', 'mlp', 'ncf', 'ncfr'], default='gmf')
+    ap.add_argument('--model', dest='model', choices=['gmf', 'mlp', 'ncf', 'ncfr', 'transformer'], default='gmf')
     ap.add_argument('--inference', dest='inference', type=bool, default=False)
-    ap.add_argument('--embedding-dim', dest='embedding_dim', type=int, default=16)
+    ap.add_argument('--embedding-dim', dest='embedding_dim', type=int, default=64)
     args = ap.parse_args()
     
     learner_config = LearnerConfig(**retrieve_fields(args, LearnerConfig))
@@ -53,7 +53,30 @@ if __name__ == "__main__":
     )
 
     # === model and learner ===
-    from neuralcolfil.models import MLP, GMF, NCF, RankNet, NCFR
+    from neuralcolfil.models import MLP, GMF, NCF, RankNet, NCFR, TransformerRecommender
+
+    def load_gmf():
+        gmf = GMF(
+            n_users=n_users,
+            n_items=n_items,
+            embedding_dim=args.embedding_dim
+        )
+        gmf.load_checkpoint(
+            path_to_ckpt='/home/ilya/repos/recsys/hw3/logs/tb/gmf-v2/version_0/checkpoints/epoch=6-step=334985.ckpt'
+        )
+        return gmf
+
+    def load_mlp():
+        mlp = MLP(
+            n_users=n_users,
+            n_items=n_items,
+            embedding_dim=args.embedding_dim,
+            hidden_sizes=[128, 128, 64, 64, 32]
+        )
+        mlp.load_checkpoint(
+            path_to_ckpt='/home/ilya/repos/recsys/hw3/logs/tb/mlp-v2/version_0/checkpoints/epoch=9-step=478550.ckpt'
+        )
+        return mlp
 
     if args.model == 'gmf':
         model = GMF(
@@ -66,55 +89,35 @@ if __name__ == "__main__":
             n_users=n_users,
             n_items=n_items,
             embedding_dim=args.embedding_dim,
-            hidden_sizes=[32, 32, 32]
+            hidden_sizes=[128, 128, 64, 64, 32]
         )
     elif args.model == 'ncf':
-        gmf = GMF(
-            n_users=n_users,
-            n_items=n_items,
-            embedding_dim=args.embedding_dim
-        )
-        gmf.load_checkpoint(
-            path_to_ckpt='/home/ilya/repos/recsys/hw3/logs/tb/gmf/version_4/checkpoints/epoch=9-step=478550.ckpt'
-        )
-        mlp = MLP(
-            n_users=n_users,
-            n_items=n_items,
-            embedding_dim=args.embedding_dim,
-            hidden_sizes=[32, 32, 32]
-        )
-        mlp.load_checkpoint(
-            path_to_ckpt='/home/ilya/repos/recsys/hw3/logs/tb/mlp/version_2/checkpoints/epoch=9-step=478550.ckpt'
-        )
+        gmf = load_gmf()
+        mlp = load_mlp()
         model = NCF(gmf, mlp)
     elif args.model == 'ncfr':
-        gmf = GMF(
-            n_users=n_users,
-            n_items=n_items,
-            embedding_dim=args.embedding_dim
-        )
-        gmf.load_checkpoint(
-            path_to_ckpt='/home/ilya/repos/recsys/hw3/logs/tb/gmf/version_4/checkpoints/epoch=9-step=478550.ckpt'
-        )
-        mlp = MLP(
-            n_users=n_users,
-            n_items=n_items,
-            embedding_dim=args.embedding_dim,
-            hidden_sizes=[32, 32, 32]
-        )
-        mlp.load_checkpoint(
-            path_to_ckpt='/home/ilya/repos/recsys/hw3/logs/tb/mlp/version_2/checkpoints/epoch=9-step=478550.ckpt'
-        )
+        gmf = load_gmf()
+        mlp = load_mlp()
         ranknet = RankNet(
             input_size=args.embedding_dim,
-            hidden_size=32,
-            n_hidden_layers=3,
+            hidden_size=64,
+            n_hidden_layers=5,
             temperature=1
         )
         ranknet.load_checkpoint(
-            path_to_ckpt='/home/ilya/repos/recsys/hw3/logs/tb/test/version_5/checkpoints/epoch=0-step=2484.ckpt'
+            path_to_ckpt='/home/ilya/repos/recsys/hw3/logs/tb/ranknet-v2/version_0/checkpoints/epoch=2-step=7452.ckpt'
         )
         model = NCFR(gmf, mlp, ranknet)
+    elif args.model == 'transformer':
+        gmf = load_gmf()
+        mlp = load_mlp()
+        model = TransformerRecommender(
+            config=None,
+            embed_user_gmf=gmf.embed_user,
+            embed_item_gmf=gmf.embed_item,
+            embed_user_mlp=mlp.embed_user,
+            embed_item_mlp=mlp.embed_item
+        )
     else:
         raise ValueError(f'unknown model {args.model}')
 

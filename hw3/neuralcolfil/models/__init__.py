@@ -3,3 +3,4 @@ from .mlp import MLP
 from .ncf import NCF
 from .ranknet import RankNet
 from .ncfr import NCFR
+from .transformer import TransformerRecommender
