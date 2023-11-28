@@ -4,6 +4,7 @@ if __name__ == "__main__":
     
     ap = config_to_argparser([LearnerConfig, TrainerConfig])
     ap.add_argument('--model', dest='model', choices=['gmf', 'mlp', 'ncf', 'ncfr'], default='gmf')
+    ap.add_argument('--inference', dest='inference', type=bool, default=False)
     ap.add_argument('--embedding-dim', dest='embedding_dim', type=int, default=16)
     args = ap.parse_args()
     
@@ -27,7 +28,7 @@ if __name__ == "__main__":
     n_users = len(train_dataset.df.user_id.unique())
     n_items = len(train_dataset.df.item_id.unique())
 
-    learner_config.total_steps = len(train_dataset) * trainer_config.n_epochs
+    learner_config.total_steps = len(train_dataset) * trainer_config.n_epochs // learner_config.batch_size
     
     from torch.utils.data import DataLoader
     import torch
@@ -120,6 +121,9 @@ if __name__ == "__main__":
     learner = Learner(model, learner_config)
 
     # === trainer ===
-    from neuralcolfil.train_utils import train
+    from neuralcolfil.train_utils import train, validate
 
-    train(learner, train_loader, val_loader, trainer_config)
+    if not args.inference:
+        train(learner, train_loader, val_loader, trainer_config)
+    else:
+        validate(learner, val_loader, trainer_config)

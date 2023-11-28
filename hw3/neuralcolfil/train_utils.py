@@ -175,6 +175,67 @@ def train(learner, train_loader, val_loader, args: TrainerConfig):
     trainer.validate(learner, val_loader, ckpt_path='best')
 
 
+def validate(learner, val_loader, args: TrainerConfig):
+    import lightning.pytorch as pl
+    import os
+
+    if args.logger == 'tb':
+        Logger = pl.loggers.TensorBoardLogger
+        logdir = os.path.join(args.logdir, 'tb')
+    elif args.logger == 'wb':
+        Logger = pl.loggers.WandbLogger
+        logdir = os.path.join(args.logdir, 'wb')
+    elif args.logger == 'none':
+        Logger = lambda **kwargs: False
+        logdir = None
+
+    logger = Logger(
+        save_dir=logdir,
+        name=args.name
+    )
+
+    trainer = pl.Trainer(
+        max_epochs=args.n_epochs,
+        # max_time={'minutes': 60},
+        
+        # max_time={'minutes': 10},
+
+        # hardware settings
+        accelerator='gpu',
+        deterministic=False,
+        # precision="16-mixed",
+
+        # logging and checkpointing
+        # val_check_interval=args.interval,
+        check_val_every_n_epoch=args.interval,
+        logger=logger,
+        enable_progress_bar=False,
+        profiler=None,
+        # callbacks=callbacks,
+        # log_every_n_steps=5,
+
+        # check if model is implemented correctly
+        overfit_batches=False,
+
+        # check training_step and validation_step doesn't fail
+        fast_dev_run=False,
+        num_sanity_val_steps=False
+    )
+
+    if args.resume_from is None:
+        raise ValueError('specify weights with `resume_from` argument')
+
+    from datetime import datetime
+    print('Started at', datetime.now().strftime("%H:%M:%S %d-%m-%Y"))
+
+    trainer.validate(
+        learner, val_loader,
+        ckpt_path=args.resume_from
+    )
+
+    print('Finished at', datetime.now().strftime("%H:%M:%S %d-%m-%Y"))
+
+
 def init_environment(seed):
     import torch
     torch.set_float32_matmul_precision('medium')

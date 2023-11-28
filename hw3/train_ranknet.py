@@ -3,6 +3,7 @@ if __name__ == "__main__":
     from neuralcolfil.learners import RankLearner as Learner, RankLearnerConfig as LearnerConfig
     
     ap = config_to_argparser([LearnerConfig, TrainerConfig])
+    ap.add_argument('--inference', dest='inference', type=bool, default=False)
     args = ap.parse_args()
     
     learner_config = LearnerConfig(**retrieve_fields(args, LearnerConfig))
@@ -28,7 +29,6 @@ if __name__ == "__main__":
     learner_config.total_steps = len(train_dataset) * trainer_config.n_epochs
     
     from torch.utils.data import DataLoader, default_collate
-    import torch
 
     def collate_fn(batch):
         batch = default_collate(batch)
@@ -64,6 +64,9 @@ if __name__ == "__main__":
     learner = Learner(model, learner_config)
 
     # === trainer ===
-    from neuralcolfil.train_utils import train
+    from neuralcolfil.train_utils import train, validate
 
-    train(learner, train_loader, val_loader, trainer_config)
+    if not args.inference:
+        train(learner, train_loader, val_loader, trainer_config)
+    else:
+        validate(learner, val_loader, trainer_config)
