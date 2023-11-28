@@ -155,25 +155,4 @@ class Learner(pl.LightningModule):
                 lr_lambda=cosine_warmup_no_decay
             )
 
-        # def cosine_annealing_with_warmup(step):
-        #     lr_max = self.config.max_lr
-
-        #     warmup_pct = self.config.warmup_pct
-        #     total_steps = self.config.n_epochs * self.config.steps_per_epoch
-        #     if warmup_pct is not None:
-        #         lr_min = lr_max / self.config.lr_div_factor
-        #         warmup_steps = math.floor(warmup_pct * total_steps)
-        #         if step < warmup_steps:
-        #             lr = lr_max - 0.5 * (lr_max - lr_min) * (1 + math.cos(step / warmup_steps * math.pi))
-        #             return lr / lr_max
-        #         step -= warmup_steps
-        #         total_steps -= warmup_steps
-            
-        #     if self.config.lr_div_factor is None:
-        #         return 1
-            
-        #     lr_min = lr_max / self.config.lr_div_factor
-        #     lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + math.cos(step / total_steps * math.pi))
-        #     return lr / lr_max
-
         return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "interval": "step", 'frequency': 1}}

@@ -2,7 +2,7 @@ from torch import nn
 from ..train_utils import HParamsPuller, LightningCkptLoadable
 
 
-class GeneralizedMatrixFactorization(nn.Module, HParamsPuller, LightningCkptLoadable):
+class GMF(nn.Module, HParamsPuller, LightningCkptLoadable):
     def __init__(self, n_users, n_items, embedding_dim):
         super().__init__()
 
@@ -20,9 +20,13 @@ class GeneralizedMatrixFactorization(nn.Module, HParamsPuller, LightningCkptLoad
         - `users`: `(B,)` user ids
         - `items`: `(B,)` item ids
         """
+        features = self.get_features(users, items)
+        score = self.projector(features).squeeze(dim=1)
+
+        return score
+    
+    def get_features(self, users, items):
         user_embeddings = self.embed_user(users)
         item_embeddings = self.embed_user(items)
 
-        score = self.projector(user_embeddings * item_embeddings).squeeze(dim=1)
-
-        return score
+        return user_embeddings * item_embeddings

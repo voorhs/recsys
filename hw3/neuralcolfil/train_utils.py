@@ -1,12 +1,22 @@
-from .learner import Learner, LearnerConfig
-
 class LightningCkptLoadable:
     def load_checkpoint(self, path_to_ckpt, map_location=None):
-        model = Learner.load_from_checkpoint(
+        from .learners import ColFilLearner, ColFilLearnerConfig, RankLearner, RankLearnerConfig
+        from .models import GMF, MLP, NCF, RankNet
+        
+        if isinstance(self, (GMF, MLP, NCF)):
+            learner = ColFilLearner
+            config = ColFilLearnerConfig
+        elif isinstance(self, RankNet):
+            learner = RankLearner
+            config = RankLearnerConfig
+        else:
+            raise ValueError(f'unknown model {model}')
+        
+        model = learner.load_from_checkpoint(
             path_to_ckpt,
             map_location=map_location,
             model=self,
-            config=LearnerConfig(),
+            config=config,
         ).model
         
         self.load_state_dict(model.state_dict())
@@ -60,8 +70,7 @@ class TrainerConfig:
     load_from: str = None
 
 
-from .learner import LearnerConfig
-def config_to_argparser(container_classes=[LearnerConfig, TrainerConfig]):
+def config_to_argparser(container_classes):
     from dataclasses import fields
     def add_arguments(container_class, parser):
         for field in fields(container_class):

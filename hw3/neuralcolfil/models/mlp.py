@@ -1,11 +1,9 @@
 from torch import nn
-from typing import Literal
-from functools import partial
 import torch
 from ..train_utils import HParamsPuller, LightningCkptLoadable
 
 
-class MLPCollaborativeFilterer(nn.Module, HParamsPuller, LightningCkptLoadable):
+class MLP(nn.Module, HParamsPuller, LightningCkptLoadable):
     def __init__(self, n_users, n_items, embedding_dim, hidden_sizes):
         super().__init__()
 
@@ -25,19 +23,24 @@ class MLPCollaborativeFilterer(nn.Module, HParamsPuller, LightningCkptLoadable):
             nn.init.zeros_(layer.bias)
             layers.append(layer)
             layers.append(nn.ReLU(inplace=True))
-        layers.append(nn.Linear(out_features, 1, bias=False))
+        
+        self.projector = nn.Linear(out_features, 1, bias=False)
         
         self.layers = nn.Sequential(*layers)
     
-    def forward(self, users, items, sigmoid=True):
+    def forward(self, users, items):
         """
         - `users`: `(B,)` user ids
         - `items`: `(B,)` item ids
         """
+        features = self.get_features(users, items)
+        score = self.projector(features).squeeze(dim=1)
+
+        return score
+    
+    def get_features(self, users, items):
         user_embeddings = self.embed_user(users)
         item_embeddings = self.embed_item(items)
 
         input_features = torch.cat([user_embeddings, item_embeddings], dim=1)
-        score = self.layers(input_features).squeeze(dim=1)
-
-        return score
+        return self.layers(input_features)
